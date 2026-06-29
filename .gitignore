@@ -1,0 +1,31 @@
+# Variáveis de ambiente (nunca commitar)
+.env
+.env.local
+.env.*.local
+
+# Backend - banco de dados local
+codebase/backend/data/
+codebase/backend/*.db
+
+# Backend - binário compilado
+codebase/backend/server
+
+# Frontend - build e dependências
+codebase/frontend/.next/
+codebase/frontend/node_modules/
+codebase/frontend/out/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Claude Code local settings
+.claude/
+
+# Docker
+docker-compose.override.yml

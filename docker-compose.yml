@@ -1,0 +1,32 @@
+services:
+  backend:
+    build:
+      context: ./codebase/backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DB_DRIVER=sqlite
+      - DATABASE_PATH=/app/data/gestao.db
+      - JWT_SECRET=mudar_para_um_segredo_forte_em_producao
+      - FRONTEND_URL=http://localhost:3000
+    volumes:
+      - backend-data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./codebase/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend-data:
