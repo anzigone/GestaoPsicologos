@@ -1,143 +1,263 @@
 'use client';
 
-import { useState } from 'react';
-import { CheckCircle, Link as LinkIcon } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { CheckCircle, XCircle, Link as LinkIcon } from 'lucide-react';
+import { api } from '@/lib/api';
+import type { User } from '@/types';
+
+type ToastState = { message: string; type: 'success' | 'error' } | null;
+
+function useToast() {
+  const [toast, setToast] = useState<ToastState>(null);
+  const show = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+  return { toast, show };
+}
 
 export default function AdminSettingsPage() {
-  const [name, setName] = useState('Dra. Ana Beatriz Santos');
-  const [crp, setCrp] = useState('06/123456');
-  const [specialty, setSpecialty] = useState('Terapia Cognitivo-Comportamental');
-  const [email, setEmail] = useState('dr.ana@email.com');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const { toast, show } = useToast();
+
+  // Profile form state
+  const [profile, setProfile] = useState({
+    name: '', crp: '', specialty: '', phone: '', email: '', base_fee: 0,
+  });
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // Password form state
+  const [passwords, setPasswords] = useState({
+    current_password: '', new_password: '', confirm_password: '',
+  });
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  // Mock integrations state
   const [googleConnected] = useState(true);
   const [outlookConnected] = useState(false);
-  const [saved, setSaved] = useState(false);
 
-  function handleSave(e: React.FormEvent) {
+  useEffect(() => {
+    api.get<User>('/api/psychologist')
+      .then((u) => setProfile({
+        name: u.name,
+        crp: u.crp ?? '',
+        specialty: u.specialty ?? '',
+        phone: u.phone ?? '',
+        email: u.email,
+        base_fee: u.base_fee ?? 0,
+      }))
+      .catch(() => show('Erro ao carregar dados do perfil.', 'error'))
+      .finally(() => setLoadingProfile(false));
+  }, [show]);
+
+  async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    setSavingProfile(true);
+    try {
+      await api.put<User>('/api/psychologist', {
+        name: profile.name,
+        crp: profile.crp,
+        specialty: profile.specialty,
+        phone: profile.phone,
+        base_fee: Number(profile.base_fee),
+      });
+      show('Dados salvos com sucesso!');
+    } catch {
+      show('Erro ao salvar dados. Tente novamente.', 'error');
+    } finally {
+      setSavingProfile(false);
+    }
   }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (passwords.new_password !== passwords.confirm_password) {
+      show('As senhas não coincidem.', 'error');
+      return;
+    }
+    if (passwords.new_password.length < 6) {
+      show('A nova senha deve ter ao menos 6 caracteres.', 'error');
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      await api.post('/api/auth/change-password', {
+        current_password: passwords.current_password,
+        new_password: passwords.new_password,
+      });
+      setPasswords({ current_password: '', new_password: '', confirm_password: '' });
+      show('Senha alterada com sucesso!');
+    } catch {
+      show('Senha atual incorreta. Tente novamente.', 'error');
+    } finally {
+      setSavingPassword(false);
+    }
+  }
+
+  const inputClass = 'w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500';
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
+      {/* Toast */}
+      {toast && (
+        <div
+          className={`fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium transition-all ${
+            toast.type === 'success' ? 'bg-teal-600' : 'bg-red-500'
+          }`}
+        >
+          {toast.type === 'success'
+            ? <CheckCircle size={16} />
+            : <XCircle size={16} />}
+          {toast.message}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Configurações da Conta</h1>
-        <span className="text-sm text-slate-500">Dr. Ricardo Santos | Sair</span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left column — Profile */}
-        <form onSubmit={handleSave} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-5">
-            Dados do Psicólogo
-          </h2>
+        {/* Left column */}
+        <div className="space-y-6">
+          {/* Profile form */}
+          <form onSubmit={handleSaveProfile} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-5">
+              Dados do Psicólogo
+            </h2>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Psicólogo</label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">CRP</label>
-              <input
-                value={crp}
-                onChange={(e) => setCrp(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Especialidade</label>
-              <select
-                value={specialty}
-                onChange={(e) => setSpecialty(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
-              >
-                <option>Terapia Cognitivo-Comportamental</option>
-                <option>Psicanálise</option>
-                <option>Psicologia Clínica</option>
-                <option>Neuropsicologia</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">E-mail Principal</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-          </div>
+            {loadingProfile ? (
+              <div className="py-8 text-center text-slate-400 text-sm">Carregando...</div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
+                  <input
+                    value={profile.name}
+                    onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
+                    required
+                    className={inputClass}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">CRP</label>
+                    <input
+                      value={profile.crp}
+                      onChange={(e) => setProfile((p) => ({ ...p, crp: e.target.value }))}
+                      placeholder="06/000000"
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
+                    <input
+                      value={profile.phone}
+                      onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))}
+                      placeholder="(11) 99999-9999"
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Especialidade</label>
+                  <input
+                    value={profile.specialty}
+                    onChange={(e) => setProfile((p) => ({ ...p, specialty: e.target.value }))}
+                    placeholder="Ex: Terapia Cognitivo Comportamental"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
+                  <input
+                    type="email"
+                    value={profile.email}
+                    readOnly
+                    className={`${inputClass} bg-gray-50 text-slate-400 cursor-not-allowed`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Valor Padrão da Consulta (R$)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={profile.base_fee}
+                    onChange={(e) => setProfile((p) => ({ ...p, base_fee: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0,00"
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+            )}
 
-          <div className="mt-6 pt-5 border-t border-gray-100">
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
+            <button
+              type="submit"
+              disabled={savingProfile || loadingProfile}
+              className="mt-6 w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-semibold py-3 rounded-lg transition-colors"
+            >
+              {savingProfile ? 'Salvando...' : 'Salvar Alterações'}
+            </button>
+          </form>
+
+          {/* Change password form */}
+          <form onSubmit={handleChangePassword} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-5">
               Alterar Senha
             </h2>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 md:col-span-1">
+            <div className="space-y-3">
+              <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Senha Atual</label>
                 <input
                   type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  value={passwords.current_password}
+                  onChange={(e) => setPasswords((p) => ({ ...p, current_password: e.target.value }))}
                   placeholder="••••••••"
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  required
+                  className={inputClass}
                 />
               </div>
-              <div className="col-span-2 md:col-span-1">
+              <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nova Senha</label>
                 <input
                   type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  value={passwords.new_password}
+                  onChange={(e) => setPasswords((p) => ({ ...p, new_password: e.target.value }))}
                   placeholder="••••••••"
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  required
+                  className={inputClass}
                 />
               </div>
-              <div className="col-span-2 md:col-span-1">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Senha do Senha</label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-              <div className="col-span-2 md:col-span-1">
+              <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar Nova Senha</label>
                 <input
                   type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  value={passwords.confirm_password}
+                  onChange={(e) => setPasswords((p) => ({ ...p, confirm_password: e.target.value }))}
                   placeholder="••••••••"
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  required
+                  className={inputClass}
                 />
               </div>
             </div>
-          </div>
+            <button
+              type="submit"
+              disabled={savingPassword}
+              className="mt-5 w-full bg-slate-700 hover:bg-slate-800 disabled:opacity-60 text-white font-semibold py-3 rounded-lg transition-colors"
+            >
+              {savingPassword ? 'Alterando...' : 'Alterar Senha'}
+            </button>
+          </form>
+        </div>
 
-          <button
-            type="submit"
-            className="mt-6 w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            {saved && <CheckCircle size={16} />}
-            {saved ? 'Salvo!' : 'Salvar Alterações'}
-          </button>
-        </form>
-
-        {/* Right column — Integrations */}
+        {/* Right column — Integrations (mock, Sprint 8) */}
         <div className="space-y-4">
           <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
             Integrações e Conexões
           </h2>
 
-          {/* Google Meet */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center shrink-0 shadow-sm">
@@ -149,16 +269,10 @@ export default function AdminSettingsPage() {
                 </svg>
               </div>
               <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-slate-800">Google Meet</p>
-                    {googleConnected ? (
-                      <p className="text-xs text-teal-600 font-medium">Conectado</p>
-                    ) : (
-                      <p className="text-xs text-slate-500">Conectar Conta</p>
-                    )}
-                  </div>
-                </div>
+                <p className="font-semibold text-slate-800">Google Meet</p>
+                {googleConnected
+                  ? <p className="text-xs text-teal-600 font-medium">Conectado</p>
+                  : <p className="text-xs text-slate-500">Conectar Conta</p>}
                 {googleConnected && (
                   <p className="text-xs text-slate-500 mt-1">
                     E-mail: <span className="text-teal-600">dr.ana@gmail.com</span>
@@ -171,21 +285,16 @@ export default function AdminSettingsPage() {
             </div>
           </div>
 
-          {/* Microsoft Outlook */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center shrink-0 shadow-sm">
                 <LinkIcon size={18} className="text-white" />
               </div>
               <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-slate-800">Microsoft Outlook Calendar</p>
-                    <p className="text-xs text-slate-500">
-                      {outlookConnected ? 'Conectado' : 'Conectar Conta'}
-                    </p>
-                  </div>
-                </div>
+                <p className="font-semibold text-slate-800">Microsoft Outlook Calendar</p>
+                <p className="text-xs text-slate-500">
+                  {outlookConnected ? 'Conectado' : 'Conectar Conta'}
+                </p>
                 <p className="text-xs text-slate-400 mt-1">Sincronize sua agenda do Outlook</p>
                 <button className="mt-3 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors">
                   {outlookConnected ? 'Desconectar' : 'Conectar'}

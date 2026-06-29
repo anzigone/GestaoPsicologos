@@ -79,6 +79,10 @@ func main() {
 
 		r.Post("/api/auth/change-password", handlers.ChangePassword(db))
 
+		// Psychologist profile
+		r.Get("/api/psychologist", handlers.GetPsychologist(db))
+		r.Put("/api/psychologist", handlers.UpdatePsychologist(db))
+
 		// Admin only
 		r.Route("/api/admin", func(r chi.Router) {
 			r.Use(mw.AdminOnly)
