@@ -1,40 +1,45 @@
 'use client';
 
-import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { api } from '@/lib/api';
 import type { LoginResponse } from '@/types';
 
+const schema = z.object({
+  email: z.string().email('E-mail inválido'),
+  password: z.string().min(6, 'A senha deve ter ao menos 6 caracteres'),
+});
+
+type FormData = z.infer<typeof schema>;
+
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<FormData>({ resolver: zodResolver(schema) });
+
+  async function onSubmit(data: FormData) {
     try {
-      const data = await api.post<LoginResponse>('/api/auth/login', { email, password });
-      document.cookie = `auth_token=${data.token}; path=/; max-age=${24 * 60 * 60}; SameSite=Strict`;
+      const res = await api.post<LoginResponse>('/api/auth/login', data);
+      document.cookie = `auth_token=${res.token}; path=/; max-age=${24 * 60 * 60}; SameSite=Strict`;
       router.push('/');
     } catch {
-      setError('E-mail ou senha inválidos. Tente novamente.');
-    } finally {
-      setLoading(false);
+      setError('root', { message: 'E-mail ou senha inválidos. Tente novamente.' });
     }
   }
 
   return (
     <div
       className="min-h-screen flex items-center justify-center px-4"
-      style={{
-        background: 'linear-gradient(135deg, #b2dfdb 0%, #e0f2f1 40%, #cde8e5 100%)',
-      }}
+      style={{ background: 'linear-gradient(135deg, #b2dfdb 0%, #e0f2f1 40%, #cde8e5 100%)' }}
     >
       <div className="bg-white rounded-2xl shadow-lg w-full max-w-sm px-8 py-10">
         <div className="flex flex-col items-center mb-6">
@@ -52,7 +57,7 @@ export default function LoginPage() {
           <p className="text-slate-500 text-sm mt-1">Login de Acesso</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
             <div className="relative">
@@ -60,12 +65,11 @@ export default function LoginPage() {
               <input
                 type="email"
                 placeholder="user@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                {...register('email')}
                 className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                required
               />
             </div>
+            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
           </div>
 
           <div>
@@ -80,22 +84,21 @@ export default function LoginPage() {
               <input
                 type="password"
                 placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                {...register('password')}
                 className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                required
               />
             </div>
+            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
           </div>
 
-          {error && <p className="text-red-500 text-xs">{error}</p>}
+          {errors.root && <p className="text-red-500 text-xs">{errors.root.message}</p>}
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={isSubmitting}
             className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-semibold py-3 rounded-lg transition-colors mt-2"
           >
-            {loading ? 'Entrando...' : 'Entrar'}
+            {isSubmitting ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
 

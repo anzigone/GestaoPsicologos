@@ -102,12 +102,28 @@ func CreateSession(db *sql.DB) http.HandlerFunc {
 		if req.Status == "" {
 			req.Status = "pendente"
 		}
+		if req.Status != "pago" && req.Status != "pendente" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(models.ErrorResponse{Error: "status deve ser 'pago' ou 'pendente'"})
+			return
+		}
+
+		sessionTime, parseErr := time.Parse(time.RFC3339, req.SessionDate)
+		if parseErr != nil {
+			sessionTime, parseErr = time.ParseInLocation("2006-01-02T15:04:05", req.SessionDate, time.UTC)
+		}
+		if parseErr != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(models.ErrorResponse{Error: "session_date inválido, use formato ISO 8601"})
+			return
+		}
+		sessionDateUTC := sessionTime.UTC().Format(time.RFC3339)
 
 		id := auth.NewUUID()
 		now := time.Now().UTC().Format(time.RFC3339)
 		_, err := db.Exec(
 			`INSERT INTO sessions (id, patient_id, session_date, notes, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			id, patientID, req.SessionDate, req.Notes, req.Status, now, now,
+			id, patientID, sessionDateUTC, req.Notes, req.Status, now, now,
 		)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)

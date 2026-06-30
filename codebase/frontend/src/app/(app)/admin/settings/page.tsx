@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, XCircle, Link as LinkIcon } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { api } from '@/lib/api';
 import type { User } from '@/types';
 
@@ -16,98 +19,83 @@ function useToast() {
   return { toast, show };
 }
 
+const profileSchema = z.object({
+  name: z.string().min(2, 'Nome deve ter ao menos 2 caracteres'),
+  crp: z.string().regex(/^\d{2}\/\d{1,6}$/, 'CRP inválido (ex: 06/123456)').or(z.literal('')),
+  specialty: z.string().optional(),
+  phone: z.string().optional(),
+  base_fee: z.coerce.number().min(0, 'Valor não pode ser negativo'),
+});
+
+const passwordSchema = z.object({
+  current_password: z.string().min(1, 'Informe a senha atual'),
+  new_password: z.string().min(6, 'A nova senha deve ter ao menos 6 caracteres'),
+  confirm_password: z.string().min(1, 'Confirme a nova senha'),
+}).refine((d) => d.new_password === d.confirm_password, {
+  message: 'As senhas não coincidem',
+  path: ['confirm_password'],
+});
+
+type ProfileData = z.infer<typeof profileSchema>;
+type PasswordData = z.infer<typeof passwordSchema>;
+
 export default function AdminSettingsPage() {
   const { toast, show } = useToast();
-
-  // Profile form state
-  const [profile, setProfile] = useState({
-    name: '', crp: '', specialty: '', phone: '', email: '', base_fee: 0,
-  });
   const [loadingProfile, setLoadingProfile] = useState(true);
-  const [savingProfile, setSavingProfile] = useState(false);
-
-  // Password form state
-  const [passwords, setPasswords] = useState({
-    current_password: '', new_password: '', confirm_password: '',
-  });
-  const [savingPassword, setSavingPassword] = useState(false);
-
-  // Mock integrations state
   const [googleConnected] = useState(true);
   const [outlookConnected] = useState(false);
 
+  const profileForm = useForm<ProfileData>({ resolver: zodResolver(profileSchema) });
+  const passwordForm = useForm<PasswordData>({ resolver: zodResolver(passwordSchema) });
+
   useEffect(() => {
     api.get<User>('/api/psychologist')
-      .then((u) => setProfile({
-        name: u.name,
-        crp: u.crp ?? '',
-        specialty: u.specialty ?? '',
-        phone: u.phone ?? '',
-        email: u.email,
-        base_fee: u.base_fee ?? 0,
-      }))
+      .then((u) => {
+        profileForm.reset({
+          name: u.name,
+          crp: u.crp ?? '',
+          specialty: u.specialty ?? '',
+          phone: u.phone ?? '',
+          base_fee: u.base_fee ?? 0,
+        });
+      })
       .catch(() => show('Erro ao carregar dados do perfil.', 'error'))
       .finally(() => setLoadingProfile(false));
-  }, [show]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  async function handleSaveProfile(e: React.FormEvent) {
-    e.preventDefault();
-    setSavingProfile(true);
+  async function onSaveProfile(data: ProfileData) {
     try {
-      await api.put<User>('/api/psychologist', {
-        name: profile.name,
-        crp: profile.crp,
-        specialty: profile.specialty,
-        phone: profile.phone,
-        base_fee: Number(profile.base_fee),
-      });
+      await api.put<User>('/api/psychologist', data);
       show('Dados salvos com sucesso!');
     } catch {
       show('Erro ao salvar dados. Tente novamente.', 'error');
-    } finally {
-      setSavingProfile(false);
     }
   }
 
-  async function handleChangePassword(e: React.FormEvent) {
-    e.preventDefault();
-    if (passwords.new_password !== passwords.confirm_password) {
-      show('As senhas não coincidem.', 'error');
-      return;
-    }
-    if (passwords.new_password.length < 6) {
-      show('A nova senha deve ter ao menos 6 caracteres.', 'error');
-      return;
-    }
-    setSavingPassword(true);
+  async function onChangePassword(data: PasswordData) {
     try {
       await api.post('/api/auth/change-password', {
-        current_password: passwords.current_password,
-        new_password: passwords.new_password,
+        current_password: data.current_password,
+        new_password: data.new_password,
       });
-      setPasswords({ current_password: '', new_password: '', confirm_password: '' });
+      passwordForm.reset();
       show('Senha alterada com sucesso!');
     } catch {
-      show('Senha atual incorreta. Tente novamente.', 'error');
-    } finally {
-      setSavingPassword(false);
+      passwordForm.setError('current_password', { message: 'Senha atual incorreta' });
     }
   }
 
   const inputClass = 'w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500';
+  const errorClass = 'text-red-500 text-xs mt-1';
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      {/* Toast */}
       {toast && (
-        <div
-          className={`fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium transition-all ${
-            toast.type === 'success' ? 'bg-teal-600' : 'bg-red-500'
-          }`}
-        >
-          {toast.type === 'success'
-            ? <CheckCircle size={16} />
-            : <XCircle size={16} />}
+        <div className={`fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium transition-all ${
+          toast.type === 'success' ? 'bg-teal-600' : 'bg-red-500'
+        }`}>
+          {toast.type === 'success' ? <CheckCircle size={16} /> : <XCircle size={16} />}
           {toast.message}
         </div>
       )}
@@ -120,61 +108,42 @@ export default function AdminSettingsPage() {
         {/* Left column */}
         <div className="space-y-6">
           {/* Profile form */}
-          <form onSubmit={handleSaveProfile} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <form onSubmit={profileForm.handleSubmit(onSaveProfile)} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-5">
               Dados do Psicólogo
             </h2>
 
             {loadingProfile ? (
-              <div className="py-8 text-center text-slate-400 text-sm">Carregando...</div>
+              <div className="space-y-3 py-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />
+                ))}
+              </div>
             ) : (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
-                  <input
-                    value={profile.name}
-                    onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
-                    required
-                    className={inputClass}
-                  />
+                  <input {...profileForm.register('name')} className={inputClass} />
+                  {profileForm.formState.errors.name && (
+                    <p className={errorClass}>{profileForm.formState.errors.name.message}</p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">CRP</label>
-                    <input
-                      value={profile.crp}
-                      onChange={(e) => setProfile((p) => ({ ...p, crp: e.target.value }))}
-                      placeholder="06/000000"
-                      className={inputClass}
-                    />
+                    <input {...profileForm.register('crp')} placeholder="06/000000" className={inputClass} />
+                    {profileForm.formState.errors.crp && (
+                      <p className={errorClass}>{profileForm.formState.errors.crp.message}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
-                    <input
-                      value={profile.phone}
-                      onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))}
-                      placeholder="(11) 99999-9999"
-                      className={inputClass}
-                    />
+                    <input {...profileForm.register('phone')} placeholder="(11) 99999-9999" className={inputClass} />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Especialidade</label>
-                  <input
-                    value={profile.specialty}
-                    onChange={(e) => setProfile((p) => ({ ...p, specialty: e.target.value }))}
-                    placeholder="Ex: Terapia Cognitivo Comportamental"
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
-                  <input
-                    type="email"
-                    value={profile.email}
-                    readOnly
-                    className={`${inputClass} bg-gray-50 text-slate-400 cursor-not-allowed`}
-                  />
+                  <input {...profileForm.register('specialty')} placeholder="Ex: Terapia Cognitivo Comportamental" className={inputClass} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -184,75 +153,65 @@ export default function AdminSettingsPage() {
                     type="number"
                     min="0"
                     step="0.01"
-                    value={profile.base_fee}
-                    onChange={(e) => setProfile((p) => ({ ...p, base_fee: parseFloat(e.target.value) || 0 }))}
+                    {...profileForm.register('base_fee')}
                     placeholder="0,00"
                     className={inputClass}
                   />
+                  {profileForm.formState.errors.base_fee && (
+                    <p className={errorClass}>{profileForm.formState.errors.base_fee.message}</p>
+                  )}
                 </div>
               </div>
             )}
 
             <button
               type="submit"
-              disabled={savingProfile || loadingProfile}
+              disabled={profileForm.formState.isSubmitting || loadingProfile}
               className="mt-6 w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-semibold py-3 rounded-lg transition-colors"
             >
-              {savingProfile ? 'Salvando...' : 'Salvar Alterações'}
+              {profileForm.formState.isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
             </button>
           </form>
 
           {/* Change password form */}
-          <form onSubmit={handleChangePassword} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <form onSubmit={passwordForm.handleSubmit(onChangePassword)} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-5">
               Alterar Senha
             </h2>
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Senha Atual</label>
-                <input
-                  type="password"
-                  value={passwords.current_password}
-                  onChange={(e) => setPasswords((p) => ({ ...p, current_password: e.target.value }))}
-                  placeholder="••••••••"
-                  required
-                  className={inputClass}
-                />
+                <input type="password" placeholder="••••••••" {...passwordForm.register('current_password')} className={inputClass} />
+                {passwordForm.formState.errors.current_password && (
+                  <p className={errorClass}>{passwordForm.formState.errors.current_password.message}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nova Senha</label>
-                <input
-                  type="password"
-                  value={passwords.new_password}
-                  onChange={(e) => setPasswords((p) => ({ ...p, new_password: e.target.value }))}
-                  placeholder="••••••••"
-                  required
-                  className={inputClass}
-                />
+                <input type="password" placeholder="••••••••" {...passwordForm.register('new_password')} className={inputClass} />
+                {passwordForm.formState.errors.new_password && (
+                  <p className={errorClass}>{passwordForm.formState.errors.new_password.message}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar Nova Senha</label>
-                <input
-                  type="password"
-                  value={passwords.confirm_password}
-                  onChange={(e) => setPasswords((p) => ({ ...p, confirm_password: e.target.value }))}
-                  placeholder="••••••••"
-                  required
-                  className={inputClass}
-                />
+                <input type="password" placeholder="••••••••" {...passwordForm.register('confirm_password')} className={inputClass} />
+                {passwordForm.formState.errors.confirm_password && (
+                  <p className={errorClass}>{passwordForm.formState.errors.confirm_password.message}</p>
+                )}
               </div>
             </div>
             <button
               type="submit"
-              disabled={savingPassword}
+              disabled={passwordForm.formState.isSubmitting}
               className="mt-5 w-full bg-slate-700 hover:bg-slate-800 disabled:opacity-60 text-white font-semibold py-3 rounded-lg transition-colors"
             >
-              {savingPassword ? 'Alterando...' : 'Alterar Senha'}
+              {passwordForm.formState.isSubmitting ? 'Alterando...' : 'Alterar Senha'}
             </button>
           </form>
         </div>
 
-        {/* Right column — Integrations (mock, Sprint 8) */}
+        {/* Right column — Integrations (mock, Sprint 8 adiada) */}
         <div className="space-y-4">
           <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
             Integrações e Conexões

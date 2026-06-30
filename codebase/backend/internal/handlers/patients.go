@@ -151,6 +151,11 @@ func CreatePatient(db *sql.DB) http.HandlerFunc {
 			json.NewEncoder(w).Encode(models.ErrorResponse{Error: "Nome é obrigatório"})
 			return
 		}
+		if req.ConsultationFee < 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(models.ErrorResponse{Error: "Valor da consulta não pode ser negativo"})
+			return
+		}
 
 		id := auth.NewUUID()
 		now := time.Now().UTC().Format(time.RFC3339)

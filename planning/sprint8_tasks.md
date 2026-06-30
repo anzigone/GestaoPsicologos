@@ -1,5 +1,7 @@
 # Tarefas da Sprint 8: Integração de Calendário (sprint8_tasks.md)
 
+> ⚠️ **SPRINT ADIADA** — A integração OAuth2 com Google Calendar e Microsoft Outlook requer credenciais de aplicativo registradas nessas plataformas, o que não é viável no momento. Esta sprint será reavaliada ao final do projeto.
+
 Este documento descreve detalhadamente as tarefas técnicas individuais necessárias para a execução da Sprint 8 pelo Programador.
 
 ---

@@ -1,10 +1,21 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Search, Plus, Download, Bold, Italic, List, ChevronDown, X, CheckCircle, XCircle, Trash2, UserX, UserCheck, EyeOff, Calendar } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { Patient, FirstAnalysis, Session, User } from '@/types';
+
+const newPatientSchema = z.object({
+  name: z.string().min(2, 'Nome deve ter ao menos 2 caracteres'),
+  phone: z.string().min(1, 'Telefone é obrigatório'),
+  consultation_fee: z.coerce.number().min(0, 'Valor não pode ser negativo'),
+});
+
+type NewPatientData = z.infer<typeof newPatientSchema>;
 
 type Tab = 'cadastro' | 'analise' | 'evolucoes';
 type ToastState = { message: string; type: 'success' | 'error' } | null;
@@ -49,8 +60,11 @@ export default function PatientsPage() {
 
   // New patient modal
   const [showModal, setShowModal] = useState(false);
-  const [newForm, setNewForm] = useState({ name: '', phone: '', consultation_fee: '' });
-  const [savingNew, setSavingNew] = useState(false);
+  const newPatientForm = useForm<NewPatientData>({
+    resolver: zodResolver(newPatientSchema),
+    defaultValues: { name: '', phone: '', consultation_fee: 0 },
+  });
+  const watchedFee = newPatientForm.watch('consultation_fee');
 
   // Analysis
   const [analysis, setAnalysis] = useState<Partial<FirstAnalysis>>(emptyAnalysis());
@@ -157,25 +171,21 @@ export default function PatientsPage() {
     }
   }
 
-  async function handleCreatePatient(e: React.FormEvent) {
-    e.preventDefault();
-    setSavingNew(true);
+  async function handleCreatePatient(data: NewPatientData) {
     try {
       const created = await api.post<Patient>('/api/patients', {
-        name: newForm.name,
-        phone: newForm.phone,
-        consultation_fee: parseFloat(newForm.consultation_fee) || 0,
+        name: data.name,
+        phone: data.phone,
+        consultation_fee: data.consultation_fee,
       });
       setPatients((ps) => [...ps, created].sort((a, b) => a.name.localeCompare(b.name)));
       setSelected(created);
       setTab('cadastro');
       setShowModal(false);
-      setNewForm({ name: '', phone: '', consultation_fee: '' });
+      newPatientForm.reset();
       showToast('Paciente cadastrado com sucesso!');
     } catch {
       showToast('Erro ao cadastrar paciente.', 'error');
-    } finally {
-      setSavingNew(false);
     }
   }
 
@@ -295,12 +305,12 @@ export default function PatientsPage() {
       {showModal && (
         <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center">
           <form
-            onSubmit={handleCreatePatient}
+            onSubmit={newPatientForm.handleSubmit(handleCreatePatient)}
             className="bg-white rounded-xl shadow-xl w-full max-w-md p-6"
           >
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-base font-bold text-slate-800">Novo Paciente</h2>
-              <button type="button" onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button type="button" onClick={() => { setShowModal(false); newPatientForm.reset(); }} className="text-slate-400 hover:text-slate-600">
                 <X size={18} />
               </button>
             </div>
@@ -308,28 +318,31 @@ export default function PatientsPage() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo *</label>
                 <input
-                  value={newForm.name}
-                  onChange={(e) => setNewForm((f) => ({ ...f, name: e.target.value }))}
-                  required
+                  {...newPatientForm.register('name')}
                   placeholder="Ex: Carlos Drummond"
                   className={inputClass}
                 />
+                {newPatientForm.formState.errors.name && (
+                  <p className="text-red-500 text-xs mt-1">{newPatientForm.formState.errors.name.message}</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Telefone *</label>
                 <input
-                  value={newForm.phone}
-                  onChange={(e) => setNewForm((f) => ({ ...f, phone: e.target.value }))}
+                  {...newPatientForm.register('phone')}
                   placeholder="(21) 99999-8888"
                   className={inputClass}
                 />
+                {newPatientForm.formState.errors.phone && (
+                  <p className="text-red-500 text-xs mt-1">{newPatientForm.formState.errors.phone.message}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Valor da Consulta (R$)
                   {baseFee > 0 && (
                     <span className="ml-2 text-xs font-normal text-slate-400">
-                      padrão: R$ {baseFee.toFixed(2).replace('.', ',')}
+                      padrão: {baseFee.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   )}
                 </label>
@@ -337,14 +350,16 @@ export default function PatientsPage() {
                   type="number"
                   min="0"
                   step="0.01"
-                  value={newForm.consultation_fee}
-                  onChange={(e) => setNewForm((f) => ({ ...f, consultation_fee: e.target.value }))}
+                  {...newPatientForm.register('consultation_fee')}
                   placeholder="0,00"
                   className={inputClass}
                 />
-                {newForm.consultation_fee && baseFee > 0 && (
-                  <p className={`text-xs mt-1 ${feeVariationColor(parseFloat(newForm.consultation_fee) || 0)}`}>
-                    {feeVariation(parseFloat(newForm.consultation_fee) || 0)}
+                {newPatientForm.formState.errors.consultation_fee && (
+                  <p className="text-red-500 text-xs mt-1">{newPatientForm.formState.errors.consultation_fee.message}</p>
+                )}
+                {watchedFee > 0 && baseFee > 0 && (
+                  <p className={`text-xs mt-1 ${feeVariationColor(watchedFee)}`}>
+                    {feeVariation(watchedFee)}
                   </p>
                 )}
               </div>
@@ -352,17 +367,17 @@ export default function PatientsPage() {
             <div className="flex gap-3 mt-6">
               <button
                 type="button"
-                onClick={() => setShowModal(false)}
+                onClick={() => { setShowModal(false); newPatientForm.reset(); }}
                 className="flex-1 border border-gray-200 text-slate-700 text-sm font-medium py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                disabled={savingNew}
+                disabled={newPatientForm.formState.isSubmitting}
                 className="flex-1 bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
               >
-                {savingNew ? 'Salvando...' : 'Salvar Novo Paciente'}
+                {newPatientForm.formState.isSubmitting ? 'Salvando...' : 'Salvar Novo Paciente'}
               </button>
             </div>
           </form>
@@ -436,7 +451,11 @@ export default function PatientsPage() {
 
         <div className="flex-1 overflow-y-auto">
           {loadingList ? (
-            <p className="text-xs text-slate-400 text-center py-8">Carregando...</p>
+            <div className="p-3 space-y-2">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-12 bg-gray-100 rounded-lg animate-pulse" />
+              ))}
+            </div>
           ) : patients.length === 0 ? (
             <p className="text-xs text-slate-400 text-center py-8">Nenhum paciente encontrado</p>
           ) : (

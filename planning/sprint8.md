@@ -3,6 +3,8 @@
 ## 1. Escopo e Objetivos
 O objetivo desta sprint é estabelecer a integração profunda com os ecossistemas externos da Google (Calendar/Meet) e Microsoft (Outlook Calendar/Graph API) através de fluxos OAuth2 de produção seguros. O psicólogo poderá gerenciar e sincronizar seus atendimentos diretamente nestas plataformas.
 
+**Essa Sprint de intregação com o Google e Microsoft será reavaliada no final do projeto, não será possivel essa integração no momento, atualizar o planejamento do projeto com esse direcionamento.
+
 **Objetivos principais**:
 - Executar a migração da tabela `oauth_tokens` no SQLite.
 - Desenvolver os endpoints de redirecionamento e callbacks OAuth2 para Google e Microsoft no backend.

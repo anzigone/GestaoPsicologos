@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/anzigone/GestaoPsicologos/backend/internal/auth"
@@ -93,6 +94,16 @@ func CreateUser(db *sql.DB) http.HandlerFunc {
 		if req.Email == "" || req.Password == "" || req.Name == "" {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(models.ErrorResponse{Error: "Email, senha e nome são obrigatórios"})
+			return
+		}
+		if !strings.Contains(req.Email, "@") || !strings.Contains(req.Email, ".") {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(models.ErrorResponse{Error: "E-mail inválido"})
+			return
+		}
+		if len(req.Password) < 6 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(models.ErrorResponse{Error: "A senha deve ter ao menos 6 caracteres"})
 			return
 		}
 

@@ -2,15 +2,34 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { api } from '@/lib/api';
 import type { User } from '@/types';
+
+const schema = z.object({
+  name: z.string().min(2, 'Nome deve ter ao menos 2 caracteres'),
+  email: z.string().email('E-mail inválido'),
+  crp: z.string().regex(/^\d{2}\/\d{1,6}$/, 'CRP inválido (ex: 06/123456)').or(z.literal('')),
+  specialty: z.string().optional(),
+  password: z.string().min(6, 'A senha deve ter ao menos 6 caracteres'),
+});
+
+type FormData = z.infer<typeof schema>;
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', crp: '', specialty: '', password: '' });
-  const [saving, setSaving] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   useEffect(() => {
     api.get<User[]>('/api/admin/users')
@@ -18,16 +37,18 @@ export default function AdminUsersPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
+  function openModal() {
+    reset();
+    setShowModal(true);
+  }
+
+  async function onSubmit(data: FormData) {
     try {
-      const newUser = await api.post<User>('/api/admin/users', form);
+      const newUser = await api.post<User>('/api/admin/users', data);
       setUsers((prev) => [...prev, newUser]);
       setShowModal(false);
-      setForm({ name: '', email: '', crp: '', specialty: '', password: '' });
-    } finally {
-      setSaving(false);
+    } catch {
+      setError('root', { message: 'Erro ao criar psicólogo. Verifique os dados e tente novamente.' });
     }
   }
 
@@ -37,6 +58,9 @@ export default function AdminUsersPage() {
     setUsers((prev) => prev.filter((u) => u.id !== id));
   }
 
+  const inputClass = 'w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500';
+  const errorClass = 'text-red-500 text-xs mt-1';
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -45,7 +69,7 @@ export default function AdminUsersPage() {
           <p className="text-sm text-slate-500 mt-1">Gerenciamento de usuários do sistema</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={openModal}
           className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
         >
           <Plus size={16} />
@@ -55,17 +79,18 @@ export default function AdminUsersPage() {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-slate-400">Carregando...</div>
+          <div className="p-8 space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />
+            ))}
+          </div>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Nome</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">CRP</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Especialidade</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">E-mail</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Cadastro</th>
-                <th className="px-5 py-3"></th>
+                {['Nome', 'CRP', 'Especialidade', 'E-mail', 'Cadastro', ''].map((h) => (
+                  <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -93,7 +118,6 @@ export default function AdminUsersPage() {
         )}
       </div>
 
-      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
@@ -107,26 +131,33 @@ export default function AdminUsersPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="space-y-4">
-              {[
-                { label: 'Nome Completo', key: 'name', type: 'text', placeholder: 'Dr. João da Silva' },
-                { label: 'E-mail', key: 'email', type: 'email', placeholder: 'dr.joao@email.com' },
-                { label: 'CRP', key: 'crp', type: 'text', placeholder: '06/000000' },
-                { label: 'Especialidade', key: 'specialty', type: 'text', placeholder: 'Psicologia Clínica' },
-                { label: 'Senha Provisória', key: 'password', type: 'password', placeholder: '••••••••' },
-              ].map(({ label, key, type, placeholder }) => (
-                <div key={key}>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
-                  <input
-                    type={type}
-                    placeholder={placeholder}
-                    value={form[key as keyof typeof form]}
-                    onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    required
-                  />
-                </div>
-              ))}
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
+                <input type="text" placeholder="Dr. João da Silva" {...register('name')} className={inputClass} />
+                {errors.name && <p className={errorClass}>{errors.name.message}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
+                <input type="email" placeholder="dr.joao@email.com" {...register('email')} className={inputClass} />
+                {errors.email && <p className={errorClass}>{errors.email.message}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">CRP</label>
+                <input type="text" placeholder="06/000000" {...register('crp')} className={inputClass} />
+                {errors.crp && <p className={errorClass}>{errors.crp.message}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Especialidade</label>
+                <input type="text" placeholder="Psicologia Clínica" {...register('specialty')} className={inputClass} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Senha Provisória</label>
+                <input type="password" placeholder="••••••••" {...register('password')} className={inputClass} />
+                {errors.password && <p className={errorClass}>{errors.password.message}</p>}
+              </div>
+
+              {errors.root && <p className="text-red-500 text-xs">{errors.root.message}</p>}
 
               <div className="flex gap-3 pt-2">
                 <button
@@ -138,10 +169,10 @@ export default function AdminUsersPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={isSubmitting}
                   className="flex-1 bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
                 >
-                  {saving ? 'Criando...' : 'Criar Psicólogo'}
+                  {isSubmitting ? 'Criando...' : 'Criar Psicólogo'}
                 </button>
               </div>
             </form>
