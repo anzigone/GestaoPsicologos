@@ -14,42 +14,9 @@ type CreateSessionRequest struct {
 	Status      string `json:"status" example:"pendente" enums:"pago,pendente"`
 }
 
-var mockSessions = []models.Session{
-	{
-		ID:          "770e8400-e29b-41d4-a716-446655440002",
-		PatientID:   "660e8400-e29b-41d4-a716-446655440001",
-		SessionDate: "2026-06-20T14:00:00Z",
-		Notes:       "Paciente apresentou melhora significativa na regulação emocional. Trabalhou técnicas de respiração.",
-		Status:      "pago",
-		MeetLink:    "https://meet.google.com/abc-defg-hij",
-		CreatedAt:   "2026-06-20T14:00:00Z",
-		UpdatedAt:   "2026-06-20T15:00:00Z",
-	},
-	{
-		ID:          "771e8400-e29b-41d4-a716-446655440003",
-		PatientID:   "660e8400-e29b-41d4-a716-446655440001",
-		SessionDate: "2026-06-06T14:00:00Z",
-		Notes:       "Discussão sobre estratégias de enfrentamento no ambiente de trabalho.",
-		Status:      "pago",
-		MeetLink:    "https://meet.google.com/def-ghij-klm",
-		CreatedAt:   "2026-06-06T14:00:00Z",
-		UpdatedAt:   "2026-06-06T15:00:00Z",
-	},
-	{
-		ID:          "772e8400-e29b-41d4-a716-446655440004",
-		PatientID:   "660e8400-e29b-41d4-a716-446655440001",
-		SessionDate: "2026-07-10T14:00:00Z",
-		Notes:       "",
-		Status:      "pendente",
-		MeetLink:    "https://meet.google.com/nop-qrst-uvw",
-		CreatedAt:   "2026-06-29T10:00:00Z",
-		UpdatedAt:   "2026-06-29T10:00:00Z",
-	},
-}
-
 // ListSessions godoc
 // @Summary      Listar sessões do paciente
-// @Description  Retorna a lista cronológica de sessões/atendimentos de um paciente
+// @Description  Retorna a lista cronológica de sessões/atendimentos de um paciente (implementação real na Sprint 7)
 // @Tags         Sessões
 // @Produce      json
 // @Security     BearerAuth
@@ -61,7 +28,7 @@ var mockSessions = []models.Session{
 func ListSessions() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockSessions)
+		json.NewEncoder(w).Encode([]models.Session{})
 	}
 }
 
@@ -82,18 +49,8 @@ func ListSessions() http.HandlerFunc {
 func CreateSession() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(models.Session{
-			ID:             "773e8400-e29b-41d4-a716-446655440099",
-			PatientID:      "660e8400-e29b-41d4-a716-446655440001",
-			SessionDate:    "2026-07-15T14:00:00Z",
-			Notes:          "",
-			Status:         "pendente",
-			MeetLink:       "https://meet.google.com/xyz-abcd-efg",
-			OutlookEventID: "AAMkADFmNTZhNmQ3LTk5ZGYtNDVmZC1iMjI2",
-			CreatedAt:      "2026-06-29T10:00:00Z",
-			UpdatedAt:      "2026-06-29T10:00:00Z",
-		})
+		w.WriteHeader(http.StatusNotImplemented)
+		json.NewEncoder(w).Encode(models.ErrorResponse{Error: "Implementação na Sprint 7"})
 	}
 }
 
@@ -115,7 +72,8 @@ func CreateSession() http.HandlerFunc {
 func UpdateSession() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockSessions[0])
+		w.WriteHeader(http.StatusNotImplemented)
+		json.NewEncoder(w).Encode(models.ErrorResponse{Error: "Implementação na Sprint 7"})
 	}
 }
 

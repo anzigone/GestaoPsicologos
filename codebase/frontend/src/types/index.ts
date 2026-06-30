@@ -26,6 +26,7 @@ export interface Patient {
   state?: string;
   marital_status?: string;
   consultation_fee: number;
+  active: boolean;
   created_at: string;
   updated_at: string;
 }

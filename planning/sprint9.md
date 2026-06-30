@@ -37,3 +37,4 @@ Para validar a conclusão desta Sprint, o humano realizará os seguintes testes:
    - Criar uma sessão em um horário específico, recarregar a tela e conferir se o horário exibido na timeline bate exatamente com o cadastrado.
 5. **Encerramento da Sprint**:
    - Realizar commit com a mensagem `feat: sprint 9 polimento e ajustes concluido`, criar a tag Git `v0.9.0` e fazer push para a branch `main`.
+ - fazer o push https://github.com/anzigone/GestaoPsicologos.git

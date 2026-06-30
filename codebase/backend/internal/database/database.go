@@ -71,7 +71,7 @@ func Seed(db *sql.DB, passwordHash string) error {
 // Migrate executa a criação das tabelas base.
 // ON UPDATE CURRENT_TIMESTAMP é omitido por compatibilidade SQLite/MySQL;
 // o campo updated_at é atualizado explicitamente na camada de repositório.
-func Migrate(db *sql.DB, _ string) error {
+func Migrate(db *sql.DB, driver string) error {
 	statements := []string{
 		`CREATE TABLE IF NOT EXISTS users (
 			id           VARCHAR(36)    PRIMARY KEY,
@@ -106,6 +106,43 @@ func Migrate(db *sql.DB, _ string) error {
 			created_at DATETIME    DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 		)`,
+		`CREATE TABLE IF NOT EXISTS patients (
+			id               VARCHAR(36)   PRIMARY KEY,
+			psychologist_id  VARCHAR(36)   NOT NULL,
+			name             VARCHAR(255)  NOT NULL,
+			phone            VARCHAR(20),
+			birthdate        VARCHAR(10),
+			age              INT,
+			profession       VARCHAR(100),
+			company          VARCHAR(100),
+			city             VARCHAR(100),
+			state            VARCHAR(2),
+			marital_status   VARCHAR(30),
+			consultation_fee DECIMAL(10,2) DEFAULT 0.00,
+			active           INTEGER       NOT NULL DEFAULT 1,
+			created_at       DATETIME      DEFAULT CURRENT_TIMESTAMP,
+			updated_at       DATETIME      DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (psychologist_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS first_analysis (
+			patient_id              VARCHAR(36) PRIMARY KEY,
+			main_complaint          TEXT,
+			symptom_diagnosis       TEXT,
+			developmental_influence TEXT,
+			situational_issues      TEXT,
+			biological_factors      TEXT,
+			strengths_resources     TEXT,
+			addictions              TEXT,
+			stimuli                 TEXT,
+			thoughts                TEXT,
+			behaviors               TEXT,
+			affects                 TEXT,
+			physiological           TEXT,
+			treatment_goals         TEXT,
+			treatment_plan          TEXT,
+			updated_at              DATETIME    DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+		)`,
 	}
 
 	for _, stmt := range statements {
@@ -113,5 +150,30 @@ func Migrate(db *sql.DB, _ string) error {
 			return fmt.Errorf("falha na migração: %w", err)
 		}
 	}
+
+	// Additive migrations: add columns to existing tables without version tracking.
+	if err := migrateAddColumn(db, driver, "patients", "active", "INTEGER NOT NULL DEFAULT 1"); err != nil {
+		return fmt.Errorf("falha ao adicionar coluna active: %w", err)
+	}
 	return nil
+}
+
+func migrateAddColumn(db *sql.DB, driver, table, column, definition string) error {
+	var exists int
+	switch driver {
+	case "mysql":
+		db.QueryRow(
+			`SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME=? AND COLUMN_NAME=? AND TABLE_SCHEMA=DATABASE()`,
+			table, column,
+		).Scan(&exists)
+	default: // sqlite
+		db.QueryRow(
+			fmt.Sprintf(`SELECT COUNT(*) FROM pragma_table_info('%s') WHERE name=?`, table), column,
+		).Scan(&exists)
+	}
+	if exists > 0 {
+		return nil
+	}
+	_, err := db.Exec(fmt.Sprintf(`ALTER TABLE %s ADD COLUMN %s %s`, table, column, definition))
+	return err
 }

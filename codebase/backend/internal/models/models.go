@@ -32,6 +32,7 @@ type Patient struct {
 	State           string  `json:"state,omitempty" example:"SP"`
 	MaritalStatus   string  `json:"marital_status,omitempty" example:"Casada"`
 	ConsultationFee float64 `json:"consultation_fee" example:"200.00"`
+	Active          bool    `json:"active" example:"true"`
 	CreatedAt       string  `json:"created_at" example:"2026-03-01T09:00:00Z"`
 	UpdatedAt       string  `json:"updated_at" example:"2026-06-01T09:00:00Z"`
 }

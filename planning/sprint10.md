@@ -41,3 +41,4 @@ Para validar a conclusão desta Sprint, o humano realizará os seguintes testes:
    - Esperado: A barra de navegação padrão desaparece, dando lugar ao botão hambúrguer. Clicar no botão abre a gaveta de links laterais com usabilidade fluida.
 5. **Encerramento da Sprint**:
    - Realizar commit com a mensagem `feat: sprint 10 hardening concluido`, criar a tag Git `v0.10.0` e fazer push para a branch `main`.
+ - fazer o push https://github.com/anzigone/GestaoPsicologos.git

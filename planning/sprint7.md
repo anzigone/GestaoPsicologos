@@ -48,3 +48,4 @@ Para validar a conclusão desta Sprint, o humano realizará os seguintes testes:
    - Esperado: Exibição apenas da sessão de R$ 150,00 que não foi paga.
 5. **Encerramento da Sprint**:
    - Realizar commit com a mensagem `feat: sprint 7 dashboard concluido`, criar a tag Git `v0.7.0` e fazer push para a branch `main`.
+    - fazer o push https://github.com/anzigone/GestaoPsicologos.git

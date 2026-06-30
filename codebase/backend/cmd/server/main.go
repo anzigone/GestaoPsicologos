@@ -91,17 +91,18 @@ func main() {
 			r.Delete("/users/{id}", handlers.DeleteUser(db))
 		})
 
-		// Patients (mock — real implementation in Sprint 6)
+		// Patients
 		r.Route("/api/patients", func(r chi.Router) {
-			r.Get("/", handlers.ListPatients())
-			r.Post("/", handlers.CreatePatient())
+			r.Get("/", handlers.ListPatients(db))
+			r.Post("/", handlers.CreatePatient(db))
 			r.Route("/{id}", func(r chi.Router) {
-				r.Get("/", handlers.GetPatient())
-				r.Put("/", handlers.UpdatePatient())
-				r.Delete("/", handlers.DeletePatient())
+				r.Get("/", handlers.GetPatient(db))
+				r.Put("/", handlers.UpdatePatient(db))
+				r.Patch("/", handlers.PatchPatientActive(db))
+				r.Delete("/", handlers.DeletePatient(db))
 				r.Get("/pdf", handlers.ExportPatientPDF())
-				r.Get("/analysis", handlers.GetAnalysis())
-				r.Put("/analysis", handlers.UpdateAnalysis())
+				r.Get("/analysis", handlers.GetAnalysis(db))
+				r.Put("/analysis", handlers.UpdateAnalysis(db))
 				r.Route("/sessions", func(r chi.Router) {
 					r.Get("/", handlers.ListSessions())
 					r.Post("/", handlers.CreateSession())
