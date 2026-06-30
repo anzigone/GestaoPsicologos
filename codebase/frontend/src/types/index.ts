@@ -62,6 +62,26 @@ export interface Session {
   updated_at: string;
 }
 
+export interface DashboardStats {
+  total_revenue: number;
+  total_sessions: number;
+  active_patients: number;
+  pending_amount: number;
+}
+
+export interface ChartPoint {
+  month: string;
+  faturamento: number;
+}
+
+export interface Transaction {
+  id: string;
+  date: string;
+  patient_name: string;
+  value: number;
+  status: 'pago' | 'pendente';
+}
+
 export interface LoginResponse {
   token: string;
   user: User;

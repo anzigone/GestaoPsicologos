@@ -143,6 +143,18 @@ func Migrate(db *sql.DB, driver string) error {
 			updated_at              DATETIME    DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 		)`,
+		`CREATE TABLE IF NOT EXISTS sessions (
+			id               VARCHAR(36)  PRIMARY KEY,
+			patient_id       VARCHAR(36)  NOT NULL,
+			session_date     DATETIME     NOT NULL,
+			notes            TEXT,
+			status           VARCHAR(20)  NOT NULL DEFAULT 'pendente',
+			meet_link        VARCHAR(500),
+			outlook_event_id VARCHAR(255),
+			created_at       DATETIME     DEFAULT CURRENT_TIMESTAMP,
+			updated_at       DATETIME     DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+		)`,
 	}
 
 	for _, stmt := range statements {

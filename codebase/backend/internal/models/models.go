@@ -72,6 +72,32 @@ type Session struct {
 	UpdatedAt      string `json:"updated_at" example:"2026-07-10T15:00:00Z"`
 }
 
+// DashboardStats represents the financial KPIs for the dashboard.
+// @Description Indicadores financeiros do Dashboard
+type DashboardStats struct {
+	TotalRevenue   float64 `json:"total_revenue" example:"250.00"`
+	TotalSessions  int     `json:"total_sessions" example:"3"`
+	ActivePatients int     `json:"active_patients" example:"2"`
+	PendingAmount  float64 `json:"pending_amount" example:"150.00"`
+}
+
+// ChartPoint represents a monthly aggregation for the revenue chart.
+// @Description Ponto mensal para o gráfico de faturamento
+type ChartPoint struct {
+	Month       string  `json:"month" example:"Jun"`
+	Faturamento float64 `json:"faturamento" example:"250.00"`
+}
+
+// Transaction represents a session entry for the dashboard transactions table.
+// @Description Transação financeira (sessão) para o Dashboard
+type Transaction struct {
+	ID          string  `json:"id" example:"770e8400-e29b-41d4-a716-446655440002"`
+	Date        string  `json:"date" example:"10/07/2026"`
+	PatientName string  `json:"patient_name" example:"Carlos Drummond"`
+	Value       float64 `json:"value" example:"150.00"`
+	Status      string  `json:"status" example:"pago" enums:"pago,pendente"`
+}
+
 // ErrorResponse represents an error response.
 // @Description Resposta de erro da API
 type ErrorResponse struct {

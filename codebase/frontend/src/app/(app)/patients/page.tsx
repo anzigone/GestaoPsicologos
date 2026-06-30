@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Plus, Download, Bold, Italic, List, ChevronDown, X, CheckCircle, XCircle, Trash2, UserX, UserCheck, EyeOff } from 'lucide-react';
+import { Search, Plus, Download, Bold, Italic, List, ChevronDown, X, CheckCircle, XCircle, Trash2, UserX, UserCheck, EyeOff, Calendar } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { Patient, FirstAnalysis, Session, User } from '@/types';
@@ -58,6 +58,10 @@ export default function PatientsPage() {
   const [savingAnalysis, setSavingAnalysis] = useState(false);
 
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [showSessionModal, setShowSessionModal] = useState(false);
+  const [newSession, setNewSession] = useState({ session_date: '', status: 'pendente', notes: '' });
+  const [savingSession, setSavingSession] = useState(false);
+  const [sessionNotes, setSessionNotes] = useState<Record<string, string>>({});
 
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -224,6 +228,50 @@ export default function PatientsPage() {
       showToast('Erro ao salvar análise.', 'error');
     } finally {
       setSavingAnalysis(false);
+    }
+  }
+
+  async function handleCreateSession(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selected) return;
+    setSavingSession(true);
+    try {
+      const created = await api.post<Session>(`/api/patients/${selected.id}/sessions`, {
+        session_date: new Date(newSession.session_date).toISOString(),
+        notes: newSession.notes,
+        status: newSession.status,
+      });
+      setSessions((ss) => [created, ...ss]);
+      setShowSessionModal(false);
+      setNewSession({ session_date: '', status: 'pendente', notes: '' });
+      showToast('Sessão criada com sucesso!');
+    } catch {
+      showToast('Erro ao criar sessão.', 'error');
+    } finally {
+      setSavingSession(false);
+    }
+  }
+
+  async function handleUpdateSession(sessionId: string, status: string) {
+    if (!selected) return;
+    try {
+      const notes = sessionNotes[sessionId] ?? sessions.find((s) => s.id === sessionId)?.notes ?? '';
+      const updated = await api.put<Session>(`/api/patients/${selected.id}/sessions/${sessionId}`, { notes, status });
+      setSessions((ss) => ss.map((s) => (s.id === sessionId ? updated : s)));
+      showToast('Sessão atualizada!');
+    } catch {
+      showToast('Erro ao atualizar sessão.', 'error');
+    }
+  }
+
+  async function handleDeleteSession(sessionId: string) {
+    if (!selected) return;
+    try {
+      await api.delete(`/api/patients/${selected.id}/sessions/${sessionId}`);
+      setSessions((ss) => ss.filter((s) => s.id !== sessionId));
+      showToast('Sessão removida.');
+    } catch {
+      showToast('Erro ao remover sessão.', 'error');
     }
   }
 
@@ -656,82 +704,159 @@ export default function PatientsPage() {
 
             {/* Evoluções tab */}
             {tab === 'evolucoes' && (
-              <div className="flex gap-6">
-                <div className="flex-1 space-y-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-semibold text-slate-700">Histórico de Sessões</h3>
-                    <button className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors">
-                      <Plus size={13} />
-                      Nova Sessão
-                    </button>
-                  </div>
-
-                  {sessions.length === 0 ? (
-                    <p className="text-sm text-slate-400">Nenhuma sessão registrada.</p>
-                  ) : sessions.map((session) => (
-                    <div key={session.id} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-semibold text-slate-700">
-                          Sessão — {formatDate(session.session_date)}
-                        </span>
-                        <span className={cn(
-                          'px-2 py-0.5 text-xs font-medium rounded-full',
-                          session.status === 'pago' ? 'bg-teal-50 text-teal-700' : 'bg-orange-50 text-orange-600',
-                        )}>
-                          {session.status === 'pago' ? 'Pago' : 'Pendente'}
-                        </span>
+              <>
+                {/* Nova Sessão modal */}
+                {showSessionModal && (
+                  <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center">
+                    <form onSubmit={handleCreateSession} className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+                      <div className="flex items-center justify-between mb-5">
+                        <h2 className="text-base font-bold text-slate-800">Nova Sessão</h2>
+                        <button type="button" onClick={() => setShowSessionModal(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
                       </div>
-                      <div className="flex gap-1 mb-2">
-                        <button className="p-1.5 hover:bg-gray-100 rounded text-slate-500"><Bold size={13} /></button>
-                        <button className="p-1.5 hover:bg-gray-100 rounded text-slate-500"><Italic size={13} /></button>
-                        <button className="p-1.5 hover:bg-gray-100 rounded text-slate-500"><List size={13} /></button>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Data e Hora *</label>
+                          <input
+                            type="datetime-local"
+                            required
+                            value={newSession.session_date}
+                            onChange={(e) => setNewSession((s) => ({ ...s, session_date: e.target.value }))}
+                            className={inputClass}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                          <select
+                            value={newSession.status}
+                            onChange={(e) => setNewSession((s) => ({ ...s, status: e.target.value }))}
+                            className={inputClass}
+                          >
+                            <option value="pendente">Pendente</option>
+                            <option value="pago">Pago</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Notas (opcional)</label>
+                          <textarea
+                            rows={3}
+                            value={newSession.notes}
+                            onChange={(e) => setNewSession((s) => ({ ...s, notes: e.target.value }))}
+                            placeholder="Notas iniciais..."
+                            className={inputClass}
+                          />
+                        </div>
                       </div>
-                      <textarea
-                        defaultValue={session.notes}
-                        rows={3}
-                        placeholder="Notas da sessão..."
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
-                      />
-                      <div className="flex items-center justify-between mt-2">
-                        {session.meet_link && (
-                          <a href={session.meet_link} target="_blank" rel="noreferrer" className="text-xs text-teal-600 hover:underline">
-                            Google Meet
-                          </a>
-                        )}
-                        <button className="ml-auto text-xs bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-md transition-colors">
-                          Salvar Alterações
+                      <div className="flex gap-3 mt-6">
+                        <button type="button" onClick={() => setShowSessionModal(false)} className="flex-1 border border-gray-200 text-slate-700 text-sm font-medium py-2.5 rounded-lg hover:bg-gray-50 transition-colors">Cancelar</button>
+                        <button type="submit" disabled={savingSession} className="flex-1 bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white text-sm font-medium py-2.5 rounded-lg transition-colors">
+                          {savingSession ? 'Salvando...' : 'Criar Sessão'}
                         </button>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    </form>
+                  </div>
+                )}
 
-                <div className="w-56 shrink-0 space-y-4">
-                  <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Próxima Sessão</h4>
-                    {sessions.find((s) => s.status === 'pendente') ? (
-                      <p className="text-sm text-slate-700 font-medium">
-                        {formatDate(sessions.find((s) => s.status === 'pendente')!.session_date)}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-slate-400">Nenhuma agendada</p>
-                    )}
-                  </div>
-                  <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Resumo de Progresso</h4>
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-xs text-slate-600">
-                        <span>Sessões realizadas</span>
-                        <span className="font-medium">{sessions.filter((s) => s.status === 'pago').length}</span>
+                <div className="flex gap-6">
+                  <div className="flex-1 space-y-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-semibold text-slate-700">Histórico de Sessões</h3>
+                      <button
+                        onClick={() => setShowSessionModal(true)}
+                        className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors"
+                      >
+                        <Plus size={13} />
+                        Nova Sessão
+                      </button>
+                    </div>
+
+                    {sessions.length === 0 ? (
+                      <p className="text-sm text-slate-400">Nenhuma sessão registrada.</p>
+                    ) : sessions.map((session) => (
+                      <div key={session.id} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-semibold text-slate-700">
+                            <Calendar size={13} className="inline mr-1 text-slate-400" />
+                            {formatDate(session.session_date)}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={session.status}
+                              onChange={(e) => handleUpdateSession(session.id, e.target.value)}
+                              className={cn(
+                                'text-xs font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer',
+                                session.status === 'pago'
+                                  ? 'bg-teal-50 text-teal-700'
+                                  : 'bg-orange-50 text-orange-600',
+                              )}
+                            >
+                              <option value="pago">Pago</option>
+                              <option value="pendente">Pendente</option>
+                            </select>
+                            <button
+                              onClick={() => handleDeleteSession(session.id)}
+                              className="text-red-400 hover:text-red-600 transition-colors"
+                              title="Remover sessão"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex gap-1 mb-2">
+                          <button className="p-1.5 hover:bg-gray-100 rounded text-slate-500"><Bold size={13} /></button>
+                          <button className="p-1.5 hover:bg-gray-100 rounded text-slate-500"><Italic size={13} /></button>
+                          <button className="p-1.5 hover:bg-gray-100 rounded text-slate-500"><List size={13} /></button>
+                        </div>
+                        <textarea
+                          value={sessionNotes[session.id] ?? session.notes}
+                          onChange={(e) => setSessionNotes((n) => ({ ...n, [session.id]: e.target.value }))}
+                          rows={3}
+                          placeholder="Notas da sessão..."
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                        />
+                        <div className="flex items-center justify-between mt-2">
+                          {session.meet_link && (
+                            <a href={session.meet_link} target="_blank" rel="noreferrer" className="text-xs text-teal-600 hover:underline">
+                              Google Meet
+                            </a>
+                          )}
+                          <button
+                            onClick={() => handleUpdateSession(session.id, session.status)}
+                            className="ml-auto text-xs bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-md transition-colors"
+                          >
+                            Salvar Alterações
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex justify-between text-xs text-slate-600">
-                        <span>Pendentes</span>
-                        <span className="font-medium text-orange-500">{sessions.filter((s) => s.status === 'pendente').length}</span>
+                    ))}
+                  </div>
+
+                  <div className="w-56 shrink-0 space-y-4">
+                    <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Próxima Sessão</h4>
+                      {sessions.find((s) => s.status === 'pendente') ? (
+                        <p className="text-sm text-slate-700 font-medium">
+                          {formatDate(sessions.find((s) => s.status === 'pendente')!.session_date)}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-400">Nenhuma agendada</p>
+                      )}
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Resumo de Progresso</h4>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs text-slate-600">
+                          <span>Sessões realizadas</span>
+                          <span className="font-medium">{sessions.filter((s) => s.status === 'pago').length}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-slate-600">
+                          <span>Pendentes</span>
+                          <span className="font-medium text-orange-500">{sessions.filter((s) => s.status === 'pendente').length}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
         </div>

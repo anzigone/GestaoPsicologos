@@ -104,12 +104,19 @@ func main() {
 				r.Get("/analysis", handlers.GetAnalysis(db))
 				r.Put("/analysis", handlers.UpdateAnalysis(db))
 				r.Route("/sessions", func(r chi.Router) {
-					r.Get("/", handlers.ListSessions())
-					r.Post("/", handlers.CreateSession())
-					r.Put("/{sid}", handlers.UpdateSession())
-					r.Delete("/{sid}", handlers.DeleteSession())
+					r.Get("/", handlers.ListSessions(db))
+					r.Post("/", handlers.CreateSession(db))
+					r.Put("/{sid}", handlers.UpdateSession(db))
+					r.Delete("/{sid}", handlers.DeleteSession(db))
 				})
 			})
+		})
+
+		// Dashboard financeiro
+		r.Route("/api/dashboard", func(r chi.Router) {
+			r.Get("/stats", handlers.GetDashboardStats(db))
+			r.Get("/charts", handlers.GetDashboardCharts(db))
+			r.Get("/transactions", handlers.GetDashboardTransactions(db))
 		})
 
 		// Integrations (mock — real implementation in Sprint 8)
